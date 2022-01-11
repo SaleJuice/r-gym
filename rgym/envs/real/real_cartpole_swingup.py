@@ -14,8 +14,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 
-import random
-from easyserial import WindowsBackground
+from utils.easyserial import WindowsBackground
 import matplotlib.pyplot as plt
 import pygame
 

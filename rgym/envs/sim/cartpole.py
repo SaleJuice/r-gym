@@ -1,11 +1,10 @@
 # _*_ coding: utf-8 _*_
-# @File        : sim_cartpole.py
+# @File        : cartpole.py
 # @Time        : 2021/12/7 10:16
 # @Author      : SaleJuice
 # @E-Mail      : linxzh@shanghaitech.edu.cn
 # @Institution : LIMA Lab, ShanghaiTech University, China
 # @SoftWare    : PyCharm
-
 
 import time
 import math
@@ -16,77 +15,31 @@ from gym import spaces, logger
 from gym.utils import seeding
 
 
-class SimCartPoleEnv(gym.Env):
-    """
-    Description:
-        A pole is attached by an un-actuated joint to a cart, which moves along
-        a frictionless track. The pendulum starts upright, and the goal is to
-        prevent it from falling over by increasing and reducing the cart's
-        velocity.
-
-    Source:
-        This environment corresponds to the version of the cart-pole problem
-        described by Barto, Sutton, and Anderson
-
-    Observation:
-        Type: Box(4)
-        Num     Observation               Min                     Max
-        0       Cart Position             -4.8                    4.8
-        1       Cart Velocity             -Inf                    Inf
-        2       Pole Angle                -0.418 rad (-24 deg)    0.418 rad (24 deg)
-        3       Pole Angular Velocity     -Inf                    Inf
-
-    Actions:
-        Type: Discrete(2)
-        Num   Action
-        0     Push cart to the left
-        1     Push cart to the right
-
-        Note: The amount the velocity that is reduced or increased is not
-        fixed; it depends on the angle the pole is pointing. This is because
-        the center of gravity of the pole increases the amount of energy needed
-        to move the cart underneath it
-
-    Reward:
-        Reward is 1 for every step taken, including the termination step
-
-    Starting State:
-        All observations are assigned a uniform random value in [-0.05..0.05]
-
-    Episode Termination:
-        Pole Angle is more than 12 degrees.
-        Cart Position is more than 2.4 (center of the cart reaches the edge of
-        the display).
-        Episode length is greater than 200.
-        Solved Requirements:
-        Considered solved when the average return is greater than or equal to
-        195.0 over 100 consecutive trials.
-    """
+class Env(gym.Env):
 
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 50}
 
     def __init__(self):
-        self.gravity = 9.8
-        self.masscart = 1.0
-        self.masspole = 0.1
-        self.total_mass = self.masspole + self.masscart
-        self.length = 0.5  # actually half the pole's length
-        self.polemass_length = self.masspole * self.length
-        self.force_mag = 10.0
-        self.tau = 0.02  # seconds between state updates
-        self.kinematics_integrator = "euler"
+        self.g = 9.8  # N/kg
+        self.m_c = 1.0  # kg
+        self.m_p = 0.1  # kg
+        self.m_all = (self.m_p + self.m_c)  # kg
+        self.l = 0.5  # actually half the pole's length  # m
+        self.m_p_l = (self.m_p * self.l)  # kg*m
+        self.f_max = 10.0  # N
+        self.dt = 0.02  # s
 
         # Angle at which to fail the episode
-        self.theta_threshold_radians = 12 * 2 * math.pi / 360
-        self.x_threshold = 2.4
+        self.angle_threshold = 12 * 2 * math.pi / 360  # rad
+        self.position_threshold = 2.4  # m
 
         # Angle limit set to 2 * theta_threshold_radians so failing observation
         # is still within bounds.
         high = np.array(
             [
-                self.x_threshold * 2,
+                self.position_threshold * 2,
                 np.finfo(np.float32).max,
-                self.theta_threshold_radians * 2,
+                self.angle_threshold * 2,
                 np.finfo(np.float32).max,
             ],
             dtype=np.float32,
@@ -101,47 +54,72 @@ class SimCartPoleEnv(gym.Env):
 
         self.steps_beyond_done = None
 
+        # kinematic parameters
+        self.x = 0
+        self.x_dot = 0
+        self.theta = 0
+        self.theta_dot = 0
+
+        # state parameters
+        self.position_pre = 0
+        self.position_cur = 0
+        self.position_delta = 0
+
+        self.angle_pre = 0
+        self.angle_cur = 0
+        self.angle_delta = 0
+
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action):
-        err_msg = "%r (%s) invalid" % (action, type(action))
-        assert self.action_space.contains(action), err_msg
+    def kinematics(self, force, model="euler"):
+        # kinematic model reference with https://coneural.org/florian/papers/05_cart_pole.pdf
+        cos_theta = math.cos(self.theta)
+        sin_theta = math.sin(self.theta)
 
-        x, x_dot, theta, theta_dot = self.state
-        force = self.force_mag if action == 1 else -self.force_mag
-        costheta = math.cos(theta)
-        sintheta = math.sin(theta)
+        temp = (force + self.m_p_l * self.theta_dot ** 2 * sin_theta) / self.m_all
+        theta_acc = (self.g * sin_theta - cos_theta * temp) / (self.l * (4.0 / 3.0 - self.m_p * cos_theta ** 2 / self.m_all))
+        x_acc = temp - self.m_p_l * theta_acc * cos_theta / self.m_all
 
-        # For the interested reader:
-        # https://coneural.org/florian/papers/05_cart_pole.pdf
-        temp = (
-            force + self.polemass_length * theta_dot ** 2 * sintheta
-        ) / self.total_mass
-        thetaacc = (self.gravity * sintheta - costheta * temp) / (
-            self.length * (4.0 / 3.0 - self.masspole * costheta ** 2 / self.total_mass)
-        )
-        xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
-
-        if self.kinematics_integrator == "euler":
-            x = x + self.tau * x_dot
-            x_dot = x_dot + self.tau * xacc
-            theta = theta + self.tau * theta_dot
-            theta_dot = theta_dot + self.tau * thetaacc
+        if model == "euler":
+            self.x = self.x + self.dt * self.x_dot
+            self.x_dot = self.x_dot + self.dt * x_acc
+            self.theta = self.theta + self.dt * self.theta_dot
+            self.theta_dot = self.theta_dot + self.dt * theta_acc
         else:  # semi-implicit euler
-            x_dot = x_dot + self.tau * xacc
-            x = x + self.tau * x_dot
-            theta_dot = theta_dot + self.tau * thetaacc
-            theta = theta + self.tau * theta_dot
+            self.x_dot = self.x_dot + self.dt * x_acc
+            self.x = self.x + self.dt * self.x_dot
+            self.theta_dot = self.theta_dot + self.dt * theta_acc
+            self.theta = self.theta + self.dt * self.theta_dot
 
-        self.state = (x, x_dot, theta, theta_dot)
+    def step(self, action=None):
+        if action != None:
+            assert self.action_space.contains(action), f"action = {action} ({type(action)}) is invalid"
+
+        if action == 1:
+            force = self.f_max
+        elif action == 0:
+            force = -self.f_max
+        else:
+            force = 0
+
+        self.kinematics(force)
+
+        self.position_cur = self.x + np.random.normal(loc=0, scale=0.0025)
+        self.angle_cur = self.theta + np.random.normal(loc=0, scale=0.0025)
+        self.position_delta = self.position_cur - self.position_pre
+        self.angle_delta = self.angle_cur - self.angle_pre
+        self.position_pre = self.position_cur
+        self.angle_pre = self.angle_cur
+
+        self.state = (self.position_cur, self.position_delta, self.angle_cur, self.angle_delta)
 
         done = bool(
-            x < -self.x_threshold
-            or x > self.x_threshold
-            or theta < -self.theta_threshold_radians
-            or theta > self.theta_threshold_radians
+            self.position_cur < -self.position_threshold
+            or self.position_cur > self.position_threshold
+            or self.angle_cur < -self.angle_threshold
+            or self.angle_cur > self.angle_threshold
         )
 
         if not done:
@@ -164,19 +142,30 @@ class SimCartPoleEnv(gym.Env):
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        (self.x, self.x_dot, self.theta, self.theta_dot) = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+
+        self.position_pre = self.x
+        self.angle_pre = self.theta
+        self.position_cur = self.x
+        self.angle_cur = self.theta
+        self.position_delta = self.position_cur - self.position_pre
+        self.angle_delta = self.angle_cur - self.angle_pre
+
+        self.state = (self.position_cur, self.position_delta, self.angle_cur, self.angle_delta)
+
         self.steps_beyond_done = None
+
         return np.array(self.state)
 
     def render(self, mode="human"):
         screen_width = 600
         screen_height = 400
 
-        world_width = self.x_threshold * 2
+        world_width = self.position_threshold * 2
         scale = screen_width / world_width
         carty = 100  # TOP OF CART
         polewidth = 10.0
-        polelen = scale * (2 * self.length)
+        polelen = scale * (2 * self.l)
         cartwidth = 50.0
         cartheight = 30.0
 
@@ -240,9 +229,8 @@ class SimCartPoleEnv(gym.Env):
 
 
 if __name__ == '__main__':
-    # control_model_init()
     print("Program Start!")
-    env = SimCartPoleEnv()
+    env = Env()
     try:
         env.reset()
         action = random.randint(0, 1)
@@ -254,13 +242,6 @@ if __name__ == '__main__':
                 action = 0
             elif observation[0] < -3.5:
                 action = 1
-
-            # for event in pygame.event.get():
-            #     if event.type == pygame.KEYDOWN:
-            #         if event.key == pygame.K_LEFT:
-            #             action = 0
-            #         elif event.key == pygame.K_RIGHT:
-            #             action = 1
     except:
         env.close()
         print("Program Exit!")

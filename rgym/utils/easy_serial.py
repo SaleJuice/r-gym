@@ -1,5 +1,5 @@
 # _*_ coding: utf-8 _*_
-# @File        : easyserial.py
+# @File        : easy_serial.py
 # @Time        : 2021/10/17 13:31
 # @Author      : SaleJuice
 # @E-Mail      : linxzh@shanghaitech.edu.cn

@@ -1,5 +1,5 @@
 # _*_ coding: utf-8 _*_
-# @File        : sim_cartpole_swingup.py
+# @File        : cartpole_swingup2.py
 # @Time        : 2021/12/6 16:45
 # @Author      : SaleJuice
 # @E-Mail      : linxzh@shanghaitech.edu.cn
@@ -7,22 +7,16 @@
 # @SoftWare    : PyCharm
 
 
-import time
 import math
 import numpy as np
 import gym
 from gym import spaces
 from gym.utils import seeding
 
-import random
-from easyserial import WindowsBackground
-import matplotlib.pyplot as plt
-import pygame
-
 np.set_printoptions(suppress=True)  # cancel scientific notation output
 
 
-class SimCartPoleSwingUpEnv(gym.Env):
+class Env(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
     def __init__(self):
@@ -223,7 +217,7 @@ class SimCartPoleSwingUpEnv(gym.Env):
 
 if __name__ == '__main__':
     print("Program Start!")
-    env = SimCartPoleSwingUpEnv()
+    env = Env()
     try:
         env.reset()
         action = None

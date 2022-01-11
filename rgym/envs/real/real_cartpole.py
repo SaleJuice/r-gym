@@ -14,10 +14,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 
-import random
-from easyserial import WindowsBackground
-import matplotlib.pyplot as plt
-import pygame
+from utils.easyserial import WindowsBackground
 
 np.set_printoptions(suppress=True)  # cancel scientific notation output
 
