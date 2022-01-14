@@ -1,5 +1,5 @@
 # _*_ coding: utf-8 _*_
-# @File        : cartpole.py
+# @File        : cartpole_balance.py
 # @Time        : 2021/12/7 10:16
 # @Author      : SaleJuice
 # @E-Mail      : linxzh@shanghaitech.edu.cn
@@ -19,7 +19,8 @@ class Env(gym.Env):
 
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 50}
 
-    def __init__(self):
+    def __init__(self, t_limit=500):
+        # kinematic parameters
         self.g = 9.8  # N/kg
         self.m_c = 1.0  # kg
         self.m_p = 0.1  # kg
@@ -29,12 +30,24 @@ class Env(gym.Env):
         self.f_max = 10.0  # N
         self.dt = 0.02  # s
 
-        # Angle at which to fail the episode
-        self.angle_threshold = 12 * 2 * math.pi / 360  # rad
+        self.x = 0
+        self.x_dot = 0
+        self.theta = 0
+        self.theta_dot = 0
+
+        # state parameters
+        self.t = 0
+        self.t_limit = t_limit
+        self.position_pre = 0
+        self.position_cur = 0
+        self.position_delta = 0
         self.position_threshold = 2.4  # m
 
-        # Angle limit set to 2 * theta_threshold_radians so failing observation
-        # is still within bounds.
+        self.angle_pre = 0
+        self.angle_cur = 0
+        self.angle_delta = 0
+        self.angle_threshold = 12 * 2 * math.pi / 360  # rad
+
         high = np.array(
             [
                 self.position_threshold * 2,
@@ -48,32 +61,17 @@ class Env(gym.Env):
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
+        # others
         self.seed()
         self.viewer = None
         self.state = None
-
         self.steps_beyond_done = None
-
-        # kinematic parameters
-        self.x = 0
-        self.x_dot = 0
-        self.theta = 0
-        self.theta_dot = 0
-
-        # state parameters
-        self.position_pre = 0
-        self.position_cur = 0
-        self.position_delta = 0
-
-        self.angle_pre = 0
-        self.angle_cur = 0
-        self.angle_delta = 0
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def kinematics(self, force, model="euler"):
+    def kinematic_fn(self, force, model="euler"):
         # kinematic model reference with https://coneural.org/florian/papers/05_cart_pole.pdf
         cos_theta = math.cos(self.theta)
         sin_theta = math.sin(self.theta)
@@ -93,35 +91,7 @@ class Env(gym.Env):
             self.theta_dot = self.theta_dot + self.dt * theta_acc
             self.theta = self.theta + self.dt * self.theta_dot
 
-    def step(self, action=None):
-        if action != None:
-            assert self.action_space.contains(action), f"action = {action} ({type(action)}) is invalid"
-
-        if action == 1:
-            force = self.f_max
-        elif action == 0:
-            force = -self.f_max
-        else:
-            force = 0
-
-        self.kinematics(force)
-
-        self.position_cur = self.x + np.random.normal(loc=0, scale=0.0025)
-        self.angle_cur = self.theta + np.random.normal(loc=0, scale=0.0025)
-        self.position_delta = self.position_cur - self.position_pre
-        self.angle_delta = self.angle_cur - self.angle_pre
-        self.position_pre = self.position_cur
-        self.angle_pre = self.angle_cur
-
-        self.state = (self.position_cur, self.position_delta, self.angle_cur, self.angle_delta)
-
-        done = bool(
-            self.position_cur < -self.position_threshold
-            or self.position_cur > self.position_threshold
-            or self.angle_cur < -self.angle_threshold
-            or self.angle_cur > self.angle_threshold
-        )
-
+    def reward_fn(self, state, done):
         if not done:
             reward = 1.0
         elif self.steps_beyond_done is None:
@@ -139,10 +109,58 @@ class Env(gym.Env):
             self.steps_beyond_done += 1
             reward = 0.0
 
+        # TODO: new reward function
+        # goal = np.array([0.0, self.l])
+        # pole_x = self.l * np.sin(state[2])
+        # pole_y = self.l * np.cos(state[2])
+        # position = np.array([state[0] + pole_x, pole_y])
+        # squared_distance = np.sum((position - goal) ** 2)
+        # squared_sigma = 0.6 ** 2
+        # # cost = 1 - np.exp(-0.5 * squared_distance / squared_sigma)
+        # cost = 1 / (squared_distance + 1)
+
+        return reward
+
+    def step(self, action=None):
+        if action != None:
+            assert self.action_space.contains(action), f"action = {action} ({type(action)}) is invalid"
+
+        if action == 1:
+            force = self.f_max
+        elif action == 0:
+            force = -self.f_max
+        else:
+            force = 0
+
+        self.kinematic_fn(force)
+
+        # TODO: gaussian noise part.
+        # gaussian noise
+        self.position_cur = self.x  # + np.random.normal(loc=0, scale=0.00157)
+        self.angle_cur = self.theta  # + np.random.normal(loc=0, scale=0.00157)
+        self.position_delta = self.position_cur - self.position_pre
+        self.angle_delta = self.angle_cur - self.angle_pre
+        self.position_pre = self.position_cur
+        self.angle_pre = self.angle_cur
+
+        self.state = (self.position_cur, self.position_delta, self.angle_cur, self.angle_delta)
+        self.t += 1
+
+        done = bool(
+            self.position_cur < -self.position_threshold
+            or self.position_cur > self.position_threshold
+            or self.angle_cur < -self.angle_threshold
+            or self.angle_cur > self.angle_threshold
+            or self.t > self.t_limit
+        )
+
+        reward = self.reward_fn(self.state, done)
+
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        (self.x, self.x_dot, self.theta, self.theta_dot) = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        # self.x = self.np_random.uniform(low=-self.position_threshold*0.1, high=self.position_threshold*0.1)
+        self.x, self.x_dot, self.theta, self.theta_dot = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
 
         self.position_pre = self.x
         self.angle_pre = self.theta
@@ -152,6 +170,7 @@ class Env(gym.Env):
         self.angle_delta = self.angle_cur - self.angle_pre
 
         self.state = (self.position_cur, self.position_delta, self.angle_cur, self.angle_delta)
+        self.t = 0
 
         self.steps_beyond_done = None
 
@@ -233,15 +252,9 @@ if __name__ == '__main__':
     env = Env()
     try:
         env.reset()
-        action = random.randint(0, 1)
         while True:
+            print(env.step())
             env.render()
-            observation, reward, done, _ = env.step(action)
-            print(observation)
-            if observation[0] > 3.5:
-                action = 0
-            elif observation[0] < -3.5:
-                action = 1
     except:
         env.close()
         print("Program Exit!")
