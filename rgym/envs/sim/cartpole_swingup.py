@@ -8,7 +8,6 @@
 
 import time
 import math
-import random
 import numpy as np
 import gym
 from gym import spaces, logger
@@ -195,8 +194,9 @@ class Env(gym.Env):
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        self.x, self.x_dot, self.theta, self.theta_dot = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        self.theta += math.pi
+        self.x_dot, self.theta_dot = self.np_random.uniform(low=-0.05, high=0.05, size=(2,))
+        self.x = self.np_random.uniform(low=-self.position_threshold*0.05, high=self.position_threshold*0.05)
+        self.theta = math.pi + self.np_random.uniform(low=-0.05, high=0.05)
 
         self.position_pre = self.x
         self.angle_pre = self.theta
