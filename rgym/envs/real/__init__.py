@@ -6,4 +6,7 @@
 # @Institution : LIMA Lab, ShanghaiTech University, China
 # @SoftWare    : PyCharm
 
-__all__ = ["real_cartpole", "real_cartpole_swingup"]
+from rgym.envs.real import cartpole_balance
+from rgym.envs.real import cartpole_swingup
+
+__all__ = ["cartpole_balance", "cartpole_swingup"]

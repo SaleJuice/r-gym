@@ -6,4 +6,6 @@
 # @Institution : LIMA Lab, ShanghaiTech University, China
 # @SoftWare    : PyCharm
 
-__all__ = ["easy_serial.py"]
+from rgym.utils import easy_serial
+
+__all__ = ["easy_serial"]

@@ -6,7 +6,9 @@
 # @Institution : LIMA Lab, ShanghaiTech University, China
 # @SoftWare    : PyCharm
 
-from rgym.envs.sim import cartpole
-from rgym.envs.sim import cartpole_swingup2
+from rgym.envs.sim import cartpole_balance
+from rgym.envs.sim import cartpole_swingup
+from rgym.envs.sim import cartpole_swingup_and_balance
+from rgym.envs.sim import pendulum
 
-__all__ = ["cartpole.py", "cartpole_swingup2.py"]
+__all__ = ["cartpole_balance", "cartpole_swingup", "cartpole_swingup_and_balance", "pendulum"]
