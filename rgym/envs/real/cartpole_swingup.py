@@ -25,7 +25,7 @@ class Env(gym.Env):
 
     metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': 50}
 
-    def __init__(self, portx, t_limit=100):
+    def __init__(self, portx, t_limit=300):
         # connect with real-machine by uart
         self.ser = MacBackground()  # diff system with diff background
         assert (self.ser.connect(portx)), f"\n\tCan't connect real env by '{portx}'!\n\t\tThere only have ports: {self.ser.port_list}"
@@ -58,6 +58,7 @@ class Env(gym.Env):
         # self.l = 0.5  # actually half the pole's length  # m
         # self.m_p_l = (self.m_p * self.l)  # kg*m
         self.f_max = 10.0  # N
+        self.f = 0  # TODO: delete this one day
         self.dt = 0.02  # s
 
         self.x = 0
@@ -124,9 +125,9 @@ class Env(gym.Env):
             return True
         return False
 
-    def kinematic_fn(self, force):
-        self.__p = max(-1800, min(force, 1800))
-        self.__output(0, self.__p)
+    def kinematic_fn(self, type, force):
+        self.__p = force
+        self.__output(type, self.__p)
 
         # ensure the gap of control is stable
         # print(time.perf_counter() - self.sta_time)
@@ -169,13 +170,16 @@ class Env(gym.Env):
             assert self.action_space.contains(action), f"action = {action} ({type(action)}) is invalid"
 
         if action == 1:
-            force = self.f_max
+            force = self.f_max * 20
         elif action == 0:
-            force = -self.f_max
+            force = -self.f_max * 20
         else:
             force = 0
 
-        self.kinematic_fn(force)
+        self.f += force
+        self.f = max(-1200, min(self.f, 1200))
+        self.kinematic_fn(0, self.f)  # 输出是固定的pwm波
+        # self.kinematic_fn(1, self.f)  # 输出是增加的力
 
         self.position_cur = self.__x * (self.position_threshold * 2 / 134200)
         self.position_delta = self.__dx * (self.position_threshold * 2 / 134200)
@@ -259,8 +263,21 @@ class Env(gym.Env):
         for _ in range(3):
             self.__output(0, 0)
 
+        # wait swing slow down
+        times = 0
+        while True:
+            time.sleep(0.02)
+            self.__input()
+            if self.__a > 3400 or self.__a < 600:
+                times += 1
+                if times > 50:
+                    break
+            else:
+                times = 0
+
         # reset parameters
-        print("Reset the real env!")
+        self.f = 0
+        # print("Reset the real env!")
         # print("Press the bottom to reset the real env!")
         # while self.__k != 1:
         #     self.__input()
