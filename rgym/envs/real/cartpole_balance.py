@@ -1,5 +1,5 @@
 # _*_ coding: utf-8 _*_
-# @File        : real_cartpole.py
+# @File        : cartpole_balance.py
 # @Time        : 2021/10/17 19:09
 # @Author      : SaleJuice
 # @E-Mail      : linxzh@shanghaitech.edu.cn
@@ -14,7 +14,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 
-from utils.easyserial import WindowsBackground
+from rgym.utils.easy_serial import WindowsBackground
 
 np.set_printoptions(suppress=True)  # cancel scientific notation output
 
@@ -54,7 +54,7 @@ class RealCartPoleEnv(gym.Env):
         self.steps_beyond_done = None
 
         # time param
-        self.start_time = 0
+        self.sta_time = 0
         self.end_time = 0
 
         # offset
@@ -131,10 +131,10 @@ class RealCartPoleEnv(gym.Env):
         # control frequency of env
         if freq is None:
             freq = self.frequency
-        # print(time.perf_counter() - self.start_time)
+        # print(time.perf_counter() - self.sta_time)
         while (self.end_time - self.start_time) < (1 / freq):
             self.end_time = time.perf_counter()
-        # print(time.perf_counter() - self.start_time)
+        # print(time.perf_counter() - self.sta_time)
         self.start_time = time.perf_counter()
 
         self.__input()

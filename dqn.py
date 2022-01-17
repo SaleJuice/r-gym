@@ -30,23 +30,23 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', type=str, default='CartPole-v0')
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--eps-test', type=float, default=0.05)
-    parser.add_argument('--eps-train', type=float, default=0.2)
-    parser.add_argument('--buffer-size', type=int, default=20000)
+    parser.add_argument('--eps-test', type=float, default=0.0)
+    parser.add_argument('--eps-train', type=float, default=0.25)
+    parser.add_argument('--buffer-size', type=int, default=50000)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--gamma', type=float, default=0.999)
-    parser.add_argument('--n-step', type=int, default=10)
-    parser.add_argument('--target-update-freq', type=int, default=100)
+    parser.add_argument('--n-step', type=int, default=10)  # 10
+    parser.add_argument('--target-update-freq', type=int, default=100)  # 100
     parser.add_argument('--epoch', type=int, default=300)
     parser.add_argument('--step-per-epoch', type=int, default=10000)
     parser.add_argument('--step-per-collect', type=int, default=10)
-    parser.add_argument('--update-per-step', type=float, default=3)
-    parser.add_argument('--batch-size', type=int, default=128)
-    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[128, 128, 128])
+    parser.add_argument('--update-per-step', type=float, default=5)  # 3
+    parser.add_argument('--batch-size', type=int, default=128)  # 256
+    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[64, 64, 64])  # 128 128 128
     parser.add_argument('--training-num', type=int, default=1)
     parser.add_argument('--test-num', type=int, default=1)
     parser.add_argument('--logdir', type=str, default='log')
-    parser.add_argument('--render', type=float, default=0.02)
+    parser.add_argument('--render', type=float, default=0.)
     parser.add_argument('--prioritized-replay', action="store_true", default=True)
     parser.add_argument('--alpha', type=float, default=0.6)
     parser.add_argument('--beta', type=float, default=0.4)
@@ -57,7 +57,7 @@ def get_args():
 
 def test_dqn(args=get_args()):
     # env = gym.make(args.task)
-    env = rgym.envs.real.cartpole_swingup.Env("cu.usbserial-142120", 300)
+    env = rgym.envs.real.cart_position.Env("cu.usbserial-142120", 500)
     env.reset(touch=True)
     args.state_shape = env.observation_space.shape or env.observation_space.n
     args.action_shape = env.action_space.shape or env.action_space.n
@@ -69,7 +69,8 @@ def test_dqn(args=get_args()):
 
     # seed
     args.seed = np.random.randint(0, 1000)
-    # args.seed = 460
+    # args.seed = 718
+    # args.seed = 131
     print(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -94,6 +95,7 @@ def test_dqn(args=get_args()):
         args.n_step,
         target_update_freq=args.target_update_freq,
     )
+    # policy.load_state_dict(torch.load("policy.pth"))
 
     # buffer
     if args.prioritized_replay:
@@ -110,7 +112,8 @@ def test_dqn(args=get_args()):
     train_collector = Collector(policy, train_envs, buf, exploration_noise=True)
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # policy.set_eps(1)
-    train_collector.collect(n_step=args.batch_size * args.training_num)
+    train_collector.collect(n_step=args.batch_size * args.training_num, random=True)
+
 
     # log
     log_path = os.path.join(args.logdir, args.task, 'dqn')
@@ -118,18 +121,20 @@ def test_dqn(args=get_args()):
     logger = TensorboardLogger(writer)
 
     def save_fn(policy):
-        torch.save(policy.state_dict(), os.path.join(log_path, 'policy.pth'))
+        torch.save(policy.state_dict(), f'cart_position_{args.seed}_dqn.pth')
 
     def stop_fn(mean_rewards):
-        return mean_rewards >= 100
+        return mean_rewards >= 480
 
     def train_fn(epoch, env_step):
         # eps annnealing, just a demo
-        if env_step <= 10000:
+        if env_step <= 3000:
+            policy.set_eps(0.5)
+        elif env_step <= 30000:
             policy.set_eps(args.eps_train)
-        elif env_step <= 50000:
-            eps = args.eps_train - (env_step - 10000) / \
-                40000 * (0.9 * args.eps_train)
+        elif env_step <= 100000:
+            eps = args.eps_train - (env_step - 30000) / \
+                70000 * (0.9 * args.eps_train)
             policy.set_eps(eps)
         else:
             policy.set_eps(0.1 * args.eps_train)
@@ -153,6 +158,7 @@ def test_dqn(args=get_args()):
         stop_fn=stop_fn,
         save_fn=save_fn,
         logger=logger,
+        test_in_train=False
     )
     # assert stop_fn(result['best_reward'])
 
@@ -160,7 +166,7 @@ def test_dqn(args=get_args()):
         pprint.pprint(result)
         print("Let's watch its performance!")
         # env = gym.make(args.task)
-        env = rgym.envs.real.cartpole_swingup.Env("cu.usbserial-142120", 500)
+        env = rgym.envs.real.cart_position.Env("cu.usbserial-142120", 500)
         policy.eval()
         policy.set_eps(args.eps_test)
         collector = Collector(policy, env)

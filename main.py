@@ -23,17 +23,13 @@ from tianshou.trainer import onpolicy_trainer
 from tianshou.utils import TensorboardLogger
 from tianshou.utils.net.common import Net
 
+import time
+import tkinter as tk
+from tkinter import *
+
 
 if __name__ == '__main__':
-    print("Program Start!")
-    env = rgym.envs.sim.cartpole_balance.Env()
-    try:
-        env.reset()
-        while True:
-            # print(env.step())
-            # print(np.clip(np.random.normal(loc=0, scale=0.015/3), )
-            # print(np.random.normal(loc=0, scale=0.015/3))
-            env.render()
-    except:
-        env.close()
-        print("Program Exit!")
+    for i in range(100):
+        time.sleep(1)
+        print(np.random.randint(0, 2))
+

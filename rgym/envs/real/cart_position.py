@@ -1,6 +1,6 @@
 # _*_ coding: utf-8 _*_
-# @File        : cartpole_swingup.py
-# @Time        : 2021/12/7 10:29
+# @File        : cart_position.py
+# @Time        : 2022/1/17 20:40
 # @Author      : SaleJuice
 # @E-Mail      : linxzh@shanghaitech.edu.cn
 # @Institution : LIMA Lab, ShanghaiTech University, China
@@ -14,9 +14,6 @@ from gym import spaces, logger
 from gym.utils import seeding
 
 from rgym.utils.easy_serial import MacBackground
-
-import matplotlib.pyplot as plt
-import pygame
 
 np.set_printoptions(suppress=True)  # cancel scientific notation output
 
@@ -36,16 +33,11 @@ class Env(gym.Env):
 
         # offset
         self.__ox = 0
-        self.__oa = 0
 
         # private variables
         self.__px = 0  # previous position of cart
         self.__x = 0  # current position of cart
         self.__dx = 0  # delta position of cart
-
-        self.__pa = 0  # previous angle of pole
-        self.__a = 0  # current angle of pole
-        self.__da = 0  # delta angle of pole
 
         self.__k = 0  # current value of push-button
         self.__p = 0  # output wait to send
@@ -55,7 +47,7 @@ class Env(gym.Env):
         # self.m_c = 1.0  # kg
         # self.m_p = 0.1  # kg
         # self.m_all = (self.m_p + self.m_c)  # kg
-        self.l = 0.8  # actually half the pole's length  # m
+        # self.l = 0.8  # actually half the pole's length  # m
         # self.m_p_l = (self.m_p * self.l)  # kg*m
         self.f_max = 10.0  # N
         self.f = 0  # TODO: delete this one day
@@ -63,8 +55,6 @@ class Env(gym.Env):
 
         self.x = 0
         self.x_dot = 0
-        self.theta = 0
-        self.theta_dot = 0
 
         # state parameters
         self.t = 0
@@ -74,16 +64,9 @@ class Env(gym.Env):
         self.position_delta = 0
         self.position_threshold = 2.4  #
 
-        self.angle_pre = 0
-        self.angle_cur = 0
-        self.angle_delta = 0
-        self.angle_threshold = 12 * 2 * math.pi / 360  # rad
-
         high = np.array(
             [
                 self.position_threshold * 2,
-                np.finfo(np.float32).max,
-                np.finfo(np.float32).max,
                 np.finfo(np.float32).max,
             ],
             dtype=np.float32,
@@ -102,17 +85,12 @@ class Env(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def __input(self, type="cur"):
+    def __input(self):
         num, res, _ = self.ser.read("all")
         if num >= 16 and res[res.rfind(')') - 14] == '(':
             res = res[res.rfind(')') - 13:res.rfind(')')]
             raw_data = list(map(int, res.split(',')))
-            if type == "cur":
-                self.__x = (raw_data[0] - self.__ox)
-                self.__a = (raw_data[1] - self.__oa)
-            else:  # "pre"
-                self.__px = (raw_data[0] - self.__ox)
-                self.__pa = (raw_data[1] - self.__oa)
+            self.__x = (raw_data[0] - self.__ox)
             self.__k = raw_data[2]
             return True
         return False
@@ -139,13 +117,6 @@ class Env(gym.Env):
         self.__input()
         self.__dx = self.__x - self.__px
         self.__px = self.__x
-        self.__da = self.__a - self.__pa
-        self.__pa = self.__a
-        # keep speed continually
-        if self.__da > 2048:
-            self.__da -= 4096
-        elif self.__da < -2048:
-            self.__da += 4096
 
     def reward_fn(self, state, done):
         if not done:
@@ -183,10 +154,8 @@ class Env(gym.Env):
 
         self.position_cur = self.__x * (self.position_threshold * 2 / 134200)
         self.position_delta = self.__dx * (self.position_threshold * 2 / 134200)
-        self.angle_cur = self.__a * (math.pi * 2 / 4096)
-        self.angle_delta = self.__da * (math.pi * 2 / 4096)
 
-        self.state = (self.position_cur, self.position_delta, self.angle_cur, self.angle_delta)
+        self.state = (self.position_cur, self.position_delta)
         self.t += 1
 
         done_edge = bool(
@@ -196,7 +165,6 @@ class Env(gym.Env):
 
         done_time = bool(
             self.t >= self.t_limit
-            and (self.angle_cur > 4.71 or self.__a < 1.57)
         )
 
         done = bool(
@@ -205,24 +173,11 @@ class Env(gym.Env):
         )
 
         # distance
-        goal = np.array([0.0, self.l * 2])
-        pole_x = - self.l * 2 * np.sin(self.angle_cur)
-        pole_y = - self.l * 2 * np.cos(self.angle_cur)
-        position = np.array([self.position_cur + pole_x, pole_y])
+        goal = np.array([0.0])
+        position = np.array([self.position_cur])
         squared_distance = np.sum((position - goal) ** 2)  # max(squared_distance) = self.l * 4
-        squared_sigma = 1 ** 2
-        cost = 1.1 * np.exp(-0.5 * squared_distance / squared_sigma)
-        cost = min(cost, 1.0)
-
-        # angle
-        # goal = np.array([0, -1])
-        # pole_x = np.sin(self.angle_cur)
-        # pole_y = np.cos(self.angle_cur)
-        # position = np.array([pole_x, pole_y])
-        # squared_distance = np.sum((position - goal) ** 2)
-        # squared_sigma = 0.75 ** 2
-        # cost = 1.1 * np.exp(-0.5 * squared_distance / squared_sigma)
-        # cost = min(cost, 1.0)
+        squared_sigma = 0.5 ** 2
+        cost = np.exp(-0.5 * squared_distance / squared_sigma)
 
         reward = 0.0
         if not done:
@@ -246,6 +201,7 @@ class Env(gym.Env):
             reward = 0.0
 
         # reward = self.reward_fn(self.state, done)
+
         # print(np.array(self.state), reward, done, {})
         return np.array(self.state), reward, done, {}
 
@@ -261,8 +217,11 @@ class Env(gym.Env):
 
         # back to the middle
         self.__input()
-        # randomevent = self.np_random.uniform(low=-4500, high=4500)
-        randomevent = 0
+        randomevent = self.np_random.uniform(low=-45000, high=-35000)
+        if self.np_random.randint(0, 2) == 0:
+            randomevent = randomevent
+        else:
+            randomevent = -randomevent
         while abs(self.__x - randomevent) >= 100:
             self.__input()
             if abs(self.__x - randomevent) >= 10000:
@@ -276,18 +235,6 @@ class Env(gym.Env):
             self.__output(0, self.__p)
         for _ in range(3):
             self.__output(0, 0)
-
-        # wait swing slow down
-        times = 0
-        while True:
-            time.sleep(0.02)
-            self.__input()
-            if self.__a > 3700 or self.__a < 300:
-                times += 1
-                if times > 100:
-                    break
-            else:
-                times = 0
 
         # reset parameters
         self.f = 0
@@ -388,18 +335,11 @@ class Env(gym.Env):
         self.__output(0, 0)
 
 
-def control_model_init():
-    pygame.init()
-    canvas = pygame.display.set_mode((100, 100))
-    canvas.fill((255, 255, 255))
-    pygame.display.set_caption("control window")
-
-
 if __name__ == '__main__':
     print("Program Start!")
     env = Env("cu.usbserial-142120")
     try:
-        env.reset()
+        env.reset(touch=True)
         while True:
             while True:
                 # env.render()  # consume a lot of time
