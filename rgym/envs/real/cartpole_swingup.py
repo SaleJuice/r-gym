@@ -55,7 +55,7 @@ class Env(gym.Env):
         # self.m_c = 1.0  # kg
         # self.m_p = 0.1  # kg
         # self.m_all = (self.m_p + self.m_c)  # kg
-        # self.l = 0.5  # actually half the pole's length  # m
+        self.l = 0.8  # actually half the pole's length  # m
         # self.m_p_l = (self.m_p * self.l)  # kg*m
         self.f_max = 10.0  # N
         self.f = 0  # TODO: delete this one day
@@ -72,7 +72,7 @@ class Env(gym.Env):
         self.position_pre = 0
         self.position_cur = 0
         self.position_delta = 0
-        self.position_threshold = 132 / 2  # cm
+        self.position_threshold = 2.4  #
 
         self.angle_pre = 0
         self.angle_cur = 0
@@ -169,15 +169,15 @@ class Env(gym.Env):
         if action != None:
             assert self.action_space.contains(action), f"action = {action} ({type(action)}) is invalid"
 
-        if action == 1:
-            force = self.f_max * 20
-        elif action == 0:
-            force = -self.f_max * 20
+        if action == 0:
+            force = -250
+        elif action == 1:
+            force = 250
         else:
             force = 0
 
         self.f += force
-        self.f = max(-1200, min(self.f, 1200))
+        self.f = max(-1000, min(self.f, 1000))
         self.kinematic_fn(0, self.f)  # 输出是固定的pwm波
         # self.kinematic_fn(1, self.f)  # 输出是增加的力
 
@@ -189,30 +189,39 @@ class Env(gym.Env):
         self.state = (self.position_cur, self.position_delta, self.angle_cur, self.angle_delta)
         self.t += 1
 
-        done = bool(
+        done_edge = bool(
             self.position_cur < -self.position_threshold * 0.7
             or self.position_cur > self.position_threshold * 0.7
-            or self.t >= self.t_limit
+        )
+
+        done_time = bool(
+            self.t >= self.t_limit
+        )
+
+        done = bool(
+            done_edge
+            or done_time
         )
 
         # distance
-        # goal = np.array([0.0, self.l * 2])
-        # pole_x = self.l * 2 * np.sin(self.angle_cur)
-        # pole_y = self.l * 2 * np.cos(self.angle_cur)
-        # position = np.array([self.position_cur + pole_x, pole_y])
-        # squared_distance = np.sum((position - goal) ** 2)  # max(squared_distance) = self.l * 4
-        # squared_sigma = 0.5 ** 2
-        # cost = np.exp(-0.5 * squared_distance / squared_sigma)
-        # # cost = 1 / (squared_distance + 1)
+        goal = np.array([0.0, self.l * 2])
+        pole_x = - self.l * 2 * np.sin(self.angle_cur)
+        pole_y = - self.l * 2 * np.cos(self.angle_cur)
+        position = np.array([self.position_cur + pole_x, pole_y])
+        squared_distance = np.sum((position - goal) ** 2)  # max(squared_distance) = self.l * 4
+        squared_sigma = 1 ** 2
+        cost = 1.05 * np.exp(-0.5 * squared_distance / squared_sigma)
+        cost = min(cost, 1.0)
 
         # angle
-        goal = np.array([0, -1])
-        pole_x = np.sin(self.angle_cur)
-        pole_y = np.cos(self.angle_cur)
-        position = np.array([pole_x, pole_y])
-        squared_distance = np.sum((position - goal) ** 2)
-        squared_sigma = 0.5 ** 2
-        cost = np.exp(-0.5 * squared_distance / squared_sigma)
+        # goal = np.array([0, -1])
+        # pole_x = np.sin(self.angle_cur)
+        # pole_y = np.cos(self.angle_cur)
+        # position = np.array([pole_x, pole_y])
+        # squared_distance = np.sum((position - goal) ** 2)
+        # squared_sigma = 0.75 ** 2
+        # cost = 1.1 * np.exp(-0.5 * squared_distance / squared_sigma)
+        # cost = min(cost, 1.0)
 
         reward = 0.0
         if not done:
@@ -232,8 +241,11 @@ class Env(gym.Env):
             self.steps_beyond_done += 1
             reward = 0.0
 
-        # reward = self.reward_fn(self.state, done)
+        if done_edge:
+            reward = 0.0
 
+        # reward = self.reward_fn(self.state, done)
+        # print(np.array(self.state), reward, done, {})
         return np.array(self.state), reward, done, {}
 
     def reset(self, touch=False):
@@ -248,7 +260,8 @@ class Env(gym.Env):
 
         # back to the middle
         self.__input()
-        randomevent = self.np_random.uniform(low=-4500, high=4500)
+        # randomevent = self.np_random.uniform(low=-4500, high=4500)
+        randomevent = 0
         while abs(self.__x - randomevent) >= 100:
             self.__input()
             if abs(self.__x - randomevent) >= 10000:
@@ -268,9 +281,9 @@ class Env(gym.Env):
         while True:
             time.sleep(0.02)
             self.__input()
-            if self.__a > 3400 or self.__a < 600:
+            if self.__a > 3700 or self.__a < 300:
                 times += 1
-                if times > 50:
+                if times > 100:
                     break
             else:
                 times = 0
@@ -384,9 +397,6 @@ def control_model_init():
 if __name__ == '__main__':
     print("Program Start!")
     env = Env("cu.usbserial-142120")
-    x = []
-    y = []
-    index = 0
     try:
         env.reset()
         while True:
@@ -400,6 +410,36 @@ if __name__ == '__main__':
     except:
         env.close()
         print("Program Exit!")
+
+
+# if __name__ == '__main__':
+#     control_model_init()
+#     print("Program Start!")
+#     env = Env("cu.usbserial-142120")
+#     try:
+#         env.reset()
+#         while True:
+#             action = None
+#             while True:
+#                 # env.render()  # consume a lot of time
+#                 observation, reward, done, _ = env.step(action)
+#                 print(observation, reward, done)
+#                 for event in pygame.event.get():
+#                     if event.type == pygame.KEYDOWN:
+#                         if event.key == pygame.K_LEFT:
+#                             action = 0
+#                         elif event.key == pygame.K_SPACE:
+#                             action = 1
+#                         elif event.key == pygame.K_RIGHT:
+#                             action = 2
+#                         else:
+#                             action = None
+#                 if done:
+#                     break
+#             env.reset()
+#     except:
+#         env.close()
+#         print("Program Exit!")
 
 # if __name__ == '__main__':
 #     control_model_init()
