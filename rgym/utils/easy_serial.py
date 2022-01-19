@@ -42,7 +42,7 @@ class LinuxBackground:
                 self.ser = serial.Serial("/dev/"+portx, baud, timeout=timeout)
                 connect_flag = True
             except Exception as e:
-                print("Use command: 'sudo chmod 666 /dev/ttyUSB1' in terminal and try again.")
+                print(f"Use command: 'sudo chmod 666 /dev/{portx}' in terminal and try again.")
                 connect_flag = False
         else:
             connect_flag = False
@@ -272,8 +272,14 @@ class MacBackground:
 
 
 if __name__ == '__main__':
-    ser = MacBackground()
-    print(ser.connect("cu.usbserial-142120"))
+    ser = None
+    if sys.platform == "linux":
+        ser = LinuxBackground()
+    elif sys.platform == "win32":
+        ser = WindowsBackground()
+    elif sys.platform == "darwin":
+        ser = MacBackground()
+    print(ser.connect("ttyUSB0"))
     print(ser.read("all"))
     print(ser.write("(888,0,0)\n"))
     print(ser.close())
