@@ -13,7 +13,7 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 
-from rgym.utils.easy_serial import MacBackground
+from rgym.utils.easy_serial import LinuxBackground
 
 import matplotlib.pyplot as plt
 import pygame
@@ -27,7 +27,7 @@ class Env(gym.Env):
 
     def __init__(self, portx, t_limit=300):
         # connect with real-machine by uart
-        self.ser = MacBackground()  # diff system with diff background
+        self.ser = LinuxBackground()  # diff system with diff background
         assert (self.ser.connect(portx)), f"\n\tCan't connect real env by '{portx}'!\n\t\tThere only have ports: {self.ser.port_list}"
 
         # time param

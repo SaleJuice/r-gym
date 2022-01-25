@@ -22,8 +22,8 @@ class Env(gym.Env):
     def __init__(self, t_limit=500):
         # kinematic parameters
         self.g = 9.8  # N/kg
-        self.m_c = 1.0  # kg
-        self.m_p = 0.1  # kg
+        self.m_c = 5.0  # kg
+        self.m_p = 1.0  # kg
         self.m_all = (self.m_p + self.m_c)  # kg
         self.l = 0.5  # actually half the pole's length  # m
         self.m_p_l = (self.m_p * self.l)  # kg*m
@@ -79,6 +79,12 @@ class Env(gym.Env):
         temp = (force + self.m_p_l * self.theta_dot ** 2 * sin_theta) / self.m_all
         theta_acc = (self.g * sin_theta - cos_theta * temp) / (self.l * (4.0 / 3.0 - self.m_p * cos_theta ** 2 / self.m_all))
         x_acc = temp - self.m_p_l * theta_acc * cos_theta / self.m_all
+
+        x_damping = - 1.0 * self.x_dot
+        theta_damping = - 0.5 * self.theta_dot
+
+        # x_acc += x_damping
+        # theta_acc += theta_damping
 
         if model == "euler":
             self.x = self.x + self.dt * self.x_dot

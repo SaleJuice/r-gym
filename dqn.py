@@ -57,7 +57,7 @@ def get_args():
 
 def test_dqn(args=get_args()):
     # env = gym.make(args.task)
-    env = rgym.envs.real.cart_position.Env("cu.usbserial-142120", 500)
+    env = rgym.envs.real.cartpole_swingup.Env("ttyUSB0", 750)
     env.reset(touch=True)
     args.state_shape = env.observation_space.shape or env.observation_space.n
     args.action_shape = env.action_space.shape or env.action_space.n
@@ -71,6 +71,7 @@ def test_dqn(args=get_args()):
     args.seed = np.random.randint(0, 1000)
     # args.seed = 718
     # args.seed = 131
+    args.seed = 91
     print(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -124,7 +125,7 @@ def test_dqn(args=get_args()):
         torch.save(policy.state_dict(), f'cart_position_{args.seed}_dqn.pth')
 
     def stop_fn(mean_rewards):
-        return mean_rewards >= 480
+        return mean_rewards >= 300
 
     def train_fn(epoch, env_step):
         # eps annnealing, just a demo
@@ -166,7 +167,7 @@ def test_dqn(args=get_args()):
         pprint.pprint(result)
         print("Let's watch its performance!")
         # env = gym.make(args.task)
-        env = rgym.envs.real.cart_position.Env("cu.usbserial-142120", 500)
+        env = rgym.envs.real.cartpole_swingup.Env("ttyUSB0", 1000)
         policy.eval()
         policy.set_eps(args.eps_test)
         collector = Collector(policy, env)

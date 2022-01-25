@@ -18,14 +18,6 @@ from tianshou.policy import BasePolicy
 from tianshou.trainer import gather_info, test_episode
 from tianshou.utils import BaseLogger, LazyLogger, MovAvg, tqdm_config
 
-import tkinter as tk
-from tkinter import *
-
-epoch_windows = tk.Tk()
-epoch_windows.title("epoch")
-epoch_windows.geometry("1024x1024")
-epoch_var = tk.IntVar()
-
 
 def op_trainer(
     policy: BasePolicy,
@@ -122,9 +114,6 @@ def op_trainer(
         save_fn(policy)
 
     for epoch in range(1 + start_epoch, 1 + max_epoch):
-        epoch_var.set(epoch)
-        Label(epoch_windows, text=str(epoch_var.get()), font=("Arial Bold", 650), fg="black").place(x=0, y=0, anchor='nw')
-        epoch_windows.update()
         print(f"epoch {epoch}")
         # train
         policy.train()
