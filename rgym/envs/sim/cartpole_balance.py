@@ -24,7 +24,7 @@ class Env(gym.Env):
         self.m_p = 0.25  # kg
         self.l = 1.0 / 2  # m
 
-        self.fri_c = 0
+        self.fri_c = 1.0
         self.fri_p = 0.1
 
         self.dt = 0.02  # s
@@ -119,12 +119,32 @@ class Env(gym.Env):
             or self.angle_cur > self.angle_threshold
         )
 
+        # distance
+        goal = np.array([0.0, self.l * 2])
+        pole_x = self.l * 2 * np.sin(self.angle_cur)
+        pole_y = self.l * 2 * np.cos(self.angle_cur)
+        position = np.array([self.position_cur + pole_x, pole_y])
+        squared_distance = np.sum((position - goal) ** 2)  # max(squared_distance) = self.l * 4
+        squared_sigma = 0.5 ** 2
+        cost = np.exp(-0.5 * squared_distance / squared_sigma)
+        # cost = 1 / (squared_distance + 1)
+
+        # angle
+        # goal = np.array([self.position_cur, self.l * 2])
+        # pole_x = self.l * 2 * np.sin(self.angle_cur)
+        # pole_y = self.l * 2 * np.cos(self.angle_cur)
+        # position = np.array([self.position_cur + pole_x, pole_y])
+        # squared_distance = np.sum((position - goal) ** 2)  # max(squared_distance) = self.l * 4
+        # squared_sigma = 0.5 ** 2
+        # cost = np.exp(-0.5 * squared_distance / squared_sigma)
+        # # cost = 1 / (squared_distance + 1)
+
         if not done:
-            reward = 1.0
+            reward = cost
         elif self.steps_beyond_done is None:
             # Pole just fell!
             self.steps_beyond_done = 0
-            reward = 1.0
+            reward = cost
         else:
             if self.steps_beyond_done == 0:
                 logger.warn(
@@ -169,7 +189,7 @@ class Env(gym.Env):
 
         reward, done = self.feedback()
 
-        return np.array(self.state), reward, done, {}
+        return np.array(self.state), reward, done, {'r': reward, 'f': force}
 
     def reset(self):
         self.position_pre, self.angle_pre = 0, 0
