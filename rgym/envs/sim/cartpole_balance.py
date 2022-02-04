@@ -17,11 +17,11 @@ class Env(gym.Env):
 
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 50}
 
-    def __init__(self):
+    def __init__(self, t_limit=float('inf')):
         # kinematic parameters
         self.g = 9.8  # N/kg
         self.m_c = 1.0  # kg
-        self.m_p = 0.25  # kg
+        self.m_p = 0.1  # kg
         self.l = 1.0 / 2  # m
 
         self.fri_c = 1.0
@@ -37,6 +37,9 @@ class Env(gym.Env):
         self.theta_dot = 0
 
         # state parameters
+        self.t = 0
+        self.t_limit = t_limit
+
         self.position_pre = 0
         self.position_cur = 0
         self.position_delta = 0
@@ -112,11 +115,14 @@ class Env(gym.Env):
         self.theta += self.theta_dot * self.dt
 
     def feedback(self):
+        self.t += 1
+
         done = bool(
             self.position_cur < -self.position_threshold
             or self.position_cur > self.position_threshold
             or self.angle_cur < -self.angle_threshold
             or self.angle_cur > self.angle_threshold
+            or self.t > self.t_limit
         )
 
         # distance
@@ -189,7 +195,7 @@ class Env(gym.Env):
 
         reward, done = self.feedback()
 
-        return np.array(self.state), reward, done, {'r': reward, 'f': force}
+        return np.array(self.state), round(reward, 8), done, {'r': reward, 'f': force}
 
     def reset(self):
         self.position_pre, self.angle_pre = 0, 0
@@ -197,6 +203,7 @@ class Env(gym.Env):
 
         self.step()
 
+        self.t = 0
         self.steps_beyond_done = None
 
         return np.array(self.state)
@@ -273,7 +280,7 @@ class Env(gym.Env):
 
 
 if __name__ == '__main__':
-    np.set_printoptions(suppress=True, sign='+')  # cancel scientific notation output
+    np.set_printoptions(precision=8, suppress=True, sign='+')  # cancel scientific notation output
     env = Env()
     while True:
         env.reset()
