@@ -202,7 +202,7 @@ class Env(gym.Env):
         screen_width = 600
         screen_height = 400
 
-        world_width = self.position_threshold * 2
+        world_width = 2 * self.position_threshold
         scale = screen_width / world_width
         carty = 100  # TOP OF CART
         polewidth = 10.0
