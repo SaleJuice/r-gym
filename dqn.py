@@ -46,7 +46,7 @@ def get_args():
     parser.add_argument('--training-num', type=int, default=1)
     parser.add_argument('--test-num', type=int, default=1)
     parser.add_argument('--logdir', type=str, default='log')
-    parser.add_argument('--render', type=float, default=0.)
+    parser.add_argument('--render', type=float, default=0.02)
     parser.add_argument('--prioritized-replay', action="store_true", default=True)
     parser.add_argument('--alpha', type=float, default=0.6)
     parser.add_argument('--beta', type=float, default=0.4)
@@ -56,22 +56,20 @@ def get_args():
 
 
 def test_dqn(args=get_args()):
-    # env = gym.make(args.task)
-    env = rgym.envs.real.cartpole_swingup.Env("ttyUSB0", 750)
-    env.reset(touch=True)
+    env = rgym.envs.sim.cartpole_swingup.Env(250)
+    # env = rgym.envs.real.cartpole_swingup.Env("ttyUSB0", 750) ; env.reset(touch=True)
     args.state_shape = env.observation_space.shape or env.observation_space.n
     args.action_shape = env.action_space.shape or env.action_space.n
     # you can also use tianshou.env.SubprocVectorEnv
-    # train_envs = env
     train_envs = DummyVectorEnv([lambda: env for _ in range(args.training_num)])
-    # test_envs = env
     test_envs = DummyVectorEnv([lambda: env for _ in range(args.test_num)])
 
     # seed
     args.seed = np.random.randint(0, 1000)
     # args.seed = 718
     # args.seed = 131
-    args.seed = 91
+    # args.seed = 91
+    # args.seed = 348
     print(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -125,7 +123,7 @@ def test_dqn(args=get_args()):
         torch.save(policy.state_dict(), f'cart_position_{args.seed}_dqn.pth')
 
     def stop_fn(mean_rewards):
-        return mean_rewards >= 300
+        return mean_rewards >= 100
 
     def train_fn(epoch, env_step):
         # eps annnealing, just a demo
@@ -166,8 +164,8 @@ def test_dqn(args=get_args()):
     if __name__ == '__main__':
         pprint.pprint(result)
         print("Let's watch its performance!")
-        # env = gym.make(args.task)
-        env = rgym.envs.real.cartpole_swingup.Env("ttyUSB0", 1000)
+        env = rgym.envs.sim.cartpole_swingup.Env()
+        # env = rgym.envs.real.cartpole_swingup.Env("ttyUSB0", 1000)
         policy.eval()
         policy.set_eps(args.eps_test)
         collector = Collector(policy, env)

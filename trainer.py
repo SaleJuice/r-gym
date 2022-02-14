@@ -122,7 +122,6 @@ def op_trainer(
             train_fn(epoch, env_step)
 
         # train_collector.reset_env()
-
         # result = train_collector.collect(n_episode=1, render=0.02)
         result = train_collector.collect(n_episode=1)
 

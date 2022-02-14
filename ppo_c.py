@@ -63,7 +63,7 @@ def get_args():
 
 def test_ppo(args=get_args()):
     # env = gym.make(args.task)
-    env = rgym.envs.sim.cartpole_swingup_and_balance.Env()
+    env = rgym.envs.sim.cartpole_swingup.Env()
     args.state_shape = env.observation_space.shape or env.observation_space.n
     args.action_shape = env.action_space.shape or env.action_space.n
     args.max_action = env.action_space.high[0]
