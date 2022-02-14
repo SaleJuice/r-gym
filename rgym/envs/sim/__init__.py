@@ -7,6 +7,7 @@
 # @SoftWare    : PyCharm
 
 from rgym.envs.sim import cartpole_balance
+from rgym.envs.sim import cartpole_swingdown
 from rgym.envs.sim import cartpole_swingup
 
-__all__ = ["cartpole_balance", "cartpole_swingup"]
+__all__ = ["cartpole_balance", "cartpole_swingdown", "cartpole_swingup"]
